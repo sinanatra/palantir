@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The people working at Palantir according to Linkedin</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Garamond", "Georgia", serif;
+        padding: 10px;
+        background: black;
+        color: white;
+      }
+
+      h1 {
+        font-size: 24px;
+        font-weight: normal;
+        margin-bottom: 30px;
+        color: white;
+        letter-spacing: -0.5px;
+      }
+
+      #error {
+        color: #c00;
+        margin-bottom: 20px;
+      }
+
+      #grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0;
+        line-height: 0;
+      }
+
+      .quilt-item {
+        position: relative;
+        overflow: hidden;
+        background-color: #e0e0e0;
+        width: 3.3333vw;
+        height: 2.3333vw;
+        flex-shrink: 0;
+      }
+
+      .quilt-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+        transition: opacity 0.15s ease;
+      }
+
+      .quilt-item:hover img {
+        opacity: 0.5;
+      }
+
+      .quilt-info {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.92);
+        color: white;
+        padding: 4px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        opacity: 0;
+        transition: opacity 0.15s ease;
+        font-size: 9px;
+        line-height: 1.2;
+      }
+
+      .quilt-item:hover .quilt-info {
+        opacity: 1;
+      }
+
+      .quilt-name {
+        font-weight: 500;
+        margin-bottom: 2px;
+      }
+
+      .quilt-desc {
+        font-size: 8px;
+        color: #bbb;
+      }
+
+      .quilt-item a {
+        position: absolute;
+        inset: 0;
+        z-index: 10;
+      }
+
+      #controls {
+        margin-bottom: 16px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      #controls button {
+        font-family: inherit;
+        font-size: 12px;
+        padding: 4px 12px;
+        border: 1px solid #555;
+        background: black;
+        color: white;
+        cursor: pointer;
+        letter-spacing: 0.3px;
+      }
+
+      #controls button.active {
+        background: white;
+        color: black;
+        border-color: white;
+      }
+
+      .role-section {
+        width: 100%;
+        flex-basis: 100%;
+        padding: 8px 2px 2px;
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        color: white;
+        background: black;
+        line-height: 1.4;
+      }
+
+      .quilt-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #d8d8d8;
+        color: #999;
+        font-size: 10px;
+        font-family: "Garamond", "Georgia", serif;
+        user-select: none;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>The people working at Palantir according to Linkedin</h1>
+    <p id="error"></p>
+    <div id="controls"></div>
+    <div id="grid"></div>
+
+    <script>
+      function parseCsv(text) {
+        const rows = [];
+        let row = [];
+        let field = "";
+        let inQuotes = false;
+
+        for (let i = 0; i < text.length; i += 1) {
+          const c = text[i];
+          if (inQuotes) {
+            if (c === '"') {
+              if (text[i + 1] === '"') {
+                field += '"';
+                i += 1;
+              } else {
+                inQuotes = false;
+              }
+            } else {
+              field += c;
+            }
+            continue;
+          }
+
+          if (c === '"') {
+            inQuotes = true;
+          } else if (c === ",") {
+            row.push(field);
+            field = "";
+          } else if (c === "\n") {
+            row.push(field);
+            rows.push(row);
+            row = [];
+            field = "";
+          } else if (c !== "\r") {
+            field += c;
+          }
+        }
+
+        if (field.length > 0 || row.length > 0) {
+          row.push(field);
+          rows.push(row);
+        }
+        return rows;
+      }
+
+      function clean(v) {
+        return String(v || "")
+          .replace(/\s+/g, " ")
+          .trim();
+      }
+
+      function makePlaceholder(name) {
+        const el = document.createElement("div");
+        el.className = "quilt-placeholder";
+        el.textContent = (name || "?")[0].toUpperCase();
+        return el;
+      }
+
+      function makeCard(person) {
+        const item = document.createElement("div");
+        item.className = "quilt-item";
+
+        if (person.photo) {
+          const img = document.createElement("img");
+          img.src = person.photo;
+          img.alt = person.name || "Profile photo";
+          img.onerror = () => {
+            img.replaceWith(makePlaceholder(person.name));
+          };
+          item.appendChild(img);
+        } else {
+          item.appendChild(makePlaceholder(person.name));
+        }
+
+        const info = document.createElement("div");
+        info.className = "quilt-info";
+
+        const name = document.createElement("div");
+        name.className = "quilt-name";
+        name.textContent = person.name || "Unknown";
+        info.appendChild(name);
+
+        if (person.desc) {
+          const desc = document.createElement("div");
+          desc.className = "quilt-desc";
+          desc.textContent = person.desc;
+          info.appendChild(desc);
+        }
+        item.appendChild(info);
+
+        const a = document.createElement("a");
+        a.href = person.profile_url || "#";
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.title = person.name || "Profile";
+        item.appendChild(a);
+
+        return item;
+      }
+
+      async function main() {
+        const meta = document.getElementById("meta");
+        const errorEl = document.getElementById("error");
+        const grid = document.getElementById("grid");
+
+        try {
+          const response = await fetch("./palantir_people.csv");
+          if (!response.ok) {
+            throw new Error(`Could not load CSV (${response.status})`);
+          }
+          const csvText = await response.text();
+          const rows = parseCsv(csvText);
+          if (rows.length < 2) {
+            throw new Error("CSV has no data rows.");
+          }
+
+          const headers = rows[0].map((h) => clean(h));
+          const idx = {
+            name: headers.indexOf("name"),
+            desc: headers.indexOf("desc"),
+            photo: headers.indexOf("photo"),
+            profile_url: headers.indexOf("profile_url"),
+          };
+
+          const people = rows
+            .slice(1)
+            .map((r) => ({
+              name: clean(r[idx.name]),
+              desc: clean(r[idx.desc]),
+              photo: clean(r[idx.photo]),
+              profile_url: clean(r[idx.profile_url]),
+            }))
+            .filter((p) => p.name || p.profile_url);
+
+          function roleKey(desc) {
+            const d = (desc || "").toLowerCase();
+            // Forward Deployed (before generic engineer check)
+            if (d.includes("forward deployed") || d.includes("fdse") || /\bfde\b/.test(d) || d.includes("deployment strategist") || d.includes("deployment lead") || d.includes("deployment @") || d.includes("deployment at")) return "Forward Deployed";
+            // Engineering
+            if (d.includes("software engineer") || d.includes("software developer") || d.includes("swe") || d.includes("dev lead") || d.includes("dev @") || d.includes("tech lead") || d.includes("technical lead") || d.includes("engineering group lead") || d.includes("engineering @") || d.includes("engineering at") || d.includes("systems engineer") || d.includes("site reliability") || d.includes("full stack") || d.includes("engineer at palantir") || d.includes("engineer @") || d.includes("palantir engineering") || /\bengineer\b/.test(d)) return "Engineering";
+            // Product
+            if (d.includes("product manager") || d.includes("product management") || d.includes("product at palantir") || d.includes("product @") || d.includes("group product")) return "Product";
+            // Design
+            if (d.includes("design") || d.includes("creative lead") || d.includes("ux") || /\bui\b/.test(d)) return "Design";
+            // Healthcare vertical
+            if (d.includes("healthcare")) return "Healthcare";
+            // Defense & Government
+            if (d.includes("defense") || d.includes("defence") || d.includes("usg") || d.includes("government") || d.includes("aerospace") || d.includes("military") || d.includes("veteran") || d.includes("army") || d.includes("navy") || d.includes("marines") || d.includes("special operations") || d.includes("intelligence analyst")) return "Defense & Government";
+            // Business Development & Sales
+            if (d.includes("business development") || d.includes("biz dev") || /\bbd\b/.test(d) || d.includes("sales") || d.includes("commercial") || d.includes("strategic accounts") || d.includes("revenue") || d.includes("global growth") || d.includes("global accounts") || d.includes("enterprise lead") || d.includes("account executive") || d.includes("capture")) return "Business Development";
+            // Strategy & Operations
+            if (d.includes("strategy and operations") || d.includes("strategy & operations") || d.includes("business strategy") || d.includes("business operations") || d.includes("operations analyst") || d.includes("operations at") || d.includes("operations @") || d.includes("operations lead") || d.includes("operations manager") || d.includes("mission ops") || d.includes("mission operations") || d.includes("special projects") || d.includes("strategic initiatives") || d.includes("strategic project") || d.includes("program manager") || d.includes("programme manager") || d.includes("project manager") || d.includes("implementation manager") || d.includes("warpspeed")) return "Strategy & Operations";
+            // Infra & Security
+            if (d.includes("infra") || d.includes("security engineer") || d.includes("information security") || d.includes("devops") || d.includes("sre") || d.includes("site reliability") || d.includes("production infra") || d.includes("netops") || d.includes("techops")) return "Infra & Security";
+            // Data, AI & Research
+            if (d.includes("data scientist") || d.includes("data science") || d.includes("applied ai") || d.includes("ai strategy") || d.includes("ai/ml") || d.includes("ai &") || d.includes("ai systems") || d.includes("ai implementation") || d.includes("llm") || d.includes("research") || d.includes("scientist")) return "Research & AI";
+            // Recruiting & People
+            if (d.includes("recruit") || d.includes("talent") || d.includes("people ops") || d.includes("people operations") || d.includes("head of people") || d.includes("global mobility") || d.includes("hr ") || d.includes("human resources") || d.includes("organisational")) return "Recruiting & People";
+            // Legal & Compliance
+            if (d.includes("legal") || d.includes("counsel") || d.includes("compliance") || d.includes("contracts specialist") || d.includes("privacy") || d.includes("corporate affairs")) return "Legal & Compliance";
+            // Finance
+            if (d.includes("finance") || d.includes("cfo") || d.includes("controller") || d.includes("accounting") || d.includes("cpa") || d.includes("tax") || d.includes("accounts receivable") || d.includes("stock administration")) return "Finance";
+            // Marketing & Comms
+            if (d.includes("marketing") || d.includes("communications") || d.includes("comms") || d.includes("media") || d.includes("brand") || d.includes("pr ")) return "Marketing & Comms";
+            // Executive & Leadership
+            if (d.includes("office of the ceo") || d.includes("ceo") || d.includes("cto") || d.includes("svp") || d.includes("evp") || d.includes("president") || d.includes("general manager") || d.includes("country lead") || d.includes("head of") || d.includes("global head") || d.includes("director of") || d.includes("senior manager") || d.includes("senior advisor") || d.includes("senior counselor") || d.includes("senior executive") || d.includes("vp ") || d.includes("vice president")) return "Executive & Leadership";
+            // Admin & Support
+            if (d.includes("executive assistant") || d.includes("administrative") || d.includes("admin") || d.includes("coordinator") || d.includes("workplace") || d.includes("travel manager") || d.includes("space")) return "Admin & Support";
+            return "Other";
+          }
+
+
+          let currentSort = "role";
+          const controls = document.getElementById("controls");
+
+          function render(sort) {
+            currentSort = sort;
+            grid.innerHTML = "";
+
+            // Update button states
+            controls.querySelectorAll("button").forEach(b => {
+              b.classList.toggle("active", b.dataset.sort === sort);
+            });
+
+            if (sort === "name") {
+              const sorted = [...people].sort((a, b) => a.name.localeCompare(b.name));
+              sorted.forEach(p => grid.appendChild(makeCard(p)));
+            } else {
+              // Group by role
+              const groups = new Map();
+              for (const p of people) {
+                const key = roleKey(p.desc);
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key).push(p);
+              }
+              const ORDER = [...groups.entries()].sort((a, b) => b[1].length - a[1].length).map(e => e[0]);
+              for (const key of ORDER) {
+                const group = groups.get(key);
+                if (!group || group.length === 0) continue;
+                const label = document.createElement("div");
+                label.className = "role-section";
+                label.textContent = `${key} (${group.length})`;
+                grid.appendChild(label);
+                group.sort((a, b) => a.name.localeCompare(b.name));
+                group.forEach(p => grid.appendChild(makeCard(p)));
+              }
+            }
+          }
+
+          [["role", "By role"], ["name", "By name"]].forEach(([sort, label]) => {
+            const btn = document.createElement("button");
+            btn.textContent = label;
+            btn.dataset.sort = sort;
+            btn.onclick = () => render(sort);
+            controls.appendChild(btn);
+          });
+
+          render("role");
+        } catch (err) {}
+      }
+
+      main();
+    </script>
+  </body>
+</html>
